@@ -22,7 +22,7 @@ namespace IoTHubServiceConsoleClient
             var commandMessage = new Message(Encoding.ASCII.GetBytes("Cloud to device message."));
             commandMessage.Ack = DeliveryAcknowledgement.Full;
             commandMessage.MessageId = Guid.NewGuid().ToString();
-            commandMessage.Properties["command"] = cmd;
+            commandMessage.Properties[EventType.COMMAND] = cmd;
             Console.WriteLine("Send message with MessageId: {0}", commandMessage.MessageId);
             await serviceClient.SendAsync(deviceId, commandMessage);
         }
