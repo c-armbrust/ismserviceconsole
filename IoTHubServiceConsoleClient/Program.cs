@@ -1,4 +1,6 @@
-﻿using Microsoft.Azure.Devices;
+﻿using IsmIoTPortal.Models;
+using Microsoft.Azure.Devices;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,11 +15,11 @@ namespace IoTHubServiceConsoleClient
         #region connection string
         static string connectionString = "[connection string]";
         #endregion
-        static string deviceId = "test";
+        static string deviceId = "[device id]";
 
 
 
-        private async static Task SendCloudToDeviceMessageAsync(string cmd)
+        private async static Task SendSimpleCloudToDeviceMessageAsync(string cmd)
         {
             var commandMessage = new Message(Encoding.ASCII.GetBytes("Cloud to device message."));
             commandMessage.Ack = DeliveryAcknowledgement.Full;
@@ -27,6 +29,36 @@ namespace IoTHubServiceConsoleClient
             await serviceClient.SendAsync(deviceId, commandMessage);
         }
 
+
+
+        private async static Task SendTestObjectCloudToDeviceMessageAsync(string cmd)
+        {
+            // DeviceSettings object
+            DeviceSettings devicesettings = new DeviceSettings();
+            devicesettings.DeviceId = "[device id]";
+            devicesettings.StateName = "ReadyState";
+            devicesettings.CapturePeriod = 10;
+            devicesettings.CurrentCaptureUri = "https://uriofblob/blob.jpg";
+            devicesettings.VarianceThreshold = 0.0025;
+            devicesettings.DistanceMapThreshold = 8.5;
+            devicesettings.RGThreshold = 3.75;
+            devicesettings.RestrictedFillingThreshold = 4;
+            devicesettings.DilateValue = 16;
+            devicesettings.Brightness = 1;
+            devicesettings.Exposure = 1;
+            devicesettings.PulseWidth = 50;
+            devicesettings.Current = 75;
+            devicesettings.Predelay = 5;
+            devicesettings.IsOn = true;
+
+            string serializedDeviceState = JsonConvert.SerializeObject(devicesettings);
+            var commandMessage = new Message(Encoding.ASCII.GetBytes(serializedDeviceState));
+            commandMessage.Ack = DeliveryAcknowledgement.Full;
+            commandMessage.MessageId = Guid.NewGuid().ToString();
+            commandMessage.Properties[EventType.COMMAND] = CommandType.SET_DEVICE_SETTINGS;
+            Console.WriteLine("Send message with MessageId: {0}", commandMessage.MessageId);
+            await serviceClient.SendAsync(deviceId, commandMessage);
+        }
 
 
         private async static void ReceiveFeedbackAsync()
@@ -52,32 +84,33 @@ namespace IoTHubServiceConsoleClient
 
         static void Start()
         {
-            SendCloudToDeviceMessageAsync(CommandType.START).Wait();
+            SendSimpleCloudToDeviceMessageAsync(CommandType.START).Wait();
         }
 
         static void Stop()
         {
-            SendCloudToDeviceMessageAsync(CommandType.STOP).Wait();
+            SendSimpleCloudToDeviceMessageAsync(CommandType.STOP).Wait();
         }
 
         static void StartPreview()
         {
-            SendCloudToDeviceMessageAsync(CommandType.START_PREVIEW).Wait();
+            SendSimpleCloudToDeviceMessageAsync(CommandType.START_PREVIEW).Wait();
         }
 
         static void StopPreview()
         {
-            SendCloudToDeviceMessageAsync(CommandType.STOP_PREVIEW).Wait();
+            SendSimpleCloudToDeviceMessageAsync(CommandType.STOP_PREVIEW).Wait();
         }
 
         static void SetDeviceSettings()
         {
-            SendCloudToDeviceMessageAsync(CommandType.SET_DEVICE_SETTINGS).Wait();
+            //SendSimpleCloudToDeviceMessageAsync(CommandType.SET_DEVICE_SETTINGS).Wait();
+            SendTestObjectCloudToDeviceMessageAsync(CommandType.SET_DEVICE_SETTINGS).Wait();
         }
 
         static void GetDeviceSettings()
         {
-            SendCloudToDeviceMessageAsync(CommandType.GET_DEVICE_SETTINGS).Wait();
+            SendSimpleCloudToDeviceMessageAsync(CommandType.GET_DEVICE_SETTINGS).Wait();
         }
 
         static void Main(string[] args)

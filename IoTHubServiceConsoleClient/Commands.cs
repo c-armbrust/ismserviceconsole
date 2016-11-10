@@ -29,8 +29,8 @@ namespace IoTHubServiceConsoleClient
         // C2D Commands
         public static string START = "D_Start";
         public static string STOP = "D_Stop";
-        public static string START_PREVIEW = "StartPreview";
-        public static string STOP_PREVIEW = "StopPreview";
+        public static string START_PREVIEW = "D_StartPreview";
+        public static string STOP_PREVIEW = "D_StopPreview";
 
         // C2D Dashboard Commands
         public static string GET_DEVICE_SETTINGS = "D_GetDeviceSettings";
