@@ -4,13 +4,14 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace IoTHubServiceConsoleClient
+namespace IsmIoT.Commands
 {
     // EventType represents the KEYS for event properties
     //
     public struct EventType
     {
-        public static string COMMAND = "D_Command";
+        public static string C2D_COMMAND = "D_C2D_Command";
+        public static string D2C_COMMAND = "D_D2C_Command";
 
         // More possible event types:
         //public static string TELEMETRY ...

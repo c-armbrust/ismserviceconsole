@@ -1,5 +1,7 @@
-﻿using IsmIoTPortal.Models;
+﻿using IsmIoT.Commands;
+using IsmIoTPortal.Models;
 using Microsoft.Azure.Devices;
+using Microsoft.ServiceBus.Messaging;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -24,7 +26,7 @@ namespace IoTHubServiceConsoleClient
             var commandMessage = new Message(Encoding.ASCII.GetBytes("Cloud to device message."));
             commandMessage.Ack = DeliveryAcknowledgement.Full;
             commandMessage.MessageId = Guid.NewGuid().ToString();
-            commandMessage.Properties[EventType.COMMAND] = cmd;
+            commandMessage.Properties[EventType.C2D_COMMAND] = cmd;
             Console.WriteLine("Send message with MessageId: {0}", commandMessage.MessageId);
             await serviceClient.SendAsync(deviceId, commandMessage);
         }
@@ -55,7 +57,7 @@ namespace IoTHubServiceConsoleClient
             var commandMessage = new Message(Encoding.ASCII.GetBytes(serializedDeviceState));
             commandMessage.Ack = DeliveryAcknowledgement.Full;
             commandMessage.MessageId = Guid.NewGuid().ToString();
-            commandMessage.Properties[EventType.COMMAND] = CommandType.SET_DEVICE_SETTINGS;
+            commandMessage.Properties[EventType.C2D_COMMAND] = CommandType.SET_DEVICE_SETTINGS;
             Console.WriteLine("Send message with MessageId: {0}", commandMessage.MessageId);
             await serviceClient.SendAsync(deviceId, commandMessage);
         }
@@ -120,6 +122,7 @@ namespace IoTHubServiceConsoleClient
 
             // Let a feedback receiver work asynchronously in a while(1) loop
             ReceiveFeedbackAsync();
+
 
             string cmd = "";
             while(cmd != "q")
