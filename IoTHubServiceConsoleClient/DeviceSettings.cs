@@ -16,7 +16,7 @@ namespace IsmIoTPortal.Models
         [DataMember]
         public string StateName { get; set; }
         [DataMember]
-        public int CapturePeriod { get; set; }
+        public uint CapturePeriod { get; set; }
         [DataMember]
         public string CurrentCaptureUri { get; set; }
 
@@ -34,18 +34,16 @@ namespace IsmIoTPortal.Models
 
         // Camera Settings
         [DataMember]
-        public int Brightness { get; set; }
+        public uint Gain { get; set; }
         [DataMember]
-        public int Exposure { get; set; }
+        public double Exposure { get; set; }
 
         // Pulser Settings
         [DataMember]
-        public int PulseWidth { get; set; }
+        public uint PulseWidth { get; set; }
         [DataMember]
         public int Current { get; set; }
         [DataMember]
-        public int Predelay { get; set; }
-        [DataMember]
-        public bool IsOn { get; set; }
+        public uint Predelay { get; set; }
     }
 }

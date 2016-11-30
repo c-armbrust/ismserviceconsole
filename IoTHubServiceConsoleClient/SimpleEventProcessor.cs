@@ -15,6 +15,8 @@ namespace ProcessD2CMessages
     {
         private long currentBlockInitOffset;
 
+        public static DeviceSettings deviceSettings;
+
         public SimpleEventProcessor()
         {
 
@@ -54,9 +56,9 @@ namespace ProcessD2CMessages
                     {
                         //var messageId = (string)eventData.SystemProperties["message-id"];
                         string serializedDeviceSettings = Encoding.UTF8.GetString(data);
-                        DeviceSettings deviceSettings = JsonConvert.DeserializeObject<DeviceSettings>(serializedDeviceSettings);
+                        deviceSettings = JsonConvert.DeserializeObject<DeviceSettings>(serializedDeviceSettings);
 
-                        WriteHighlightedMessage(string.Format("\nReceived message, message-body=\n{0}", serializedDeviceSettings));
+                        WriteHighlightedMessage(string.Format("\nUpdate Dashboard controls, message-body=\n{0}", serializedDeviceSettings));
                         continue;
                     }
                     catch(Exception ex)
@@ -66,12 +68,30 @@ namespace ProcessD2CMessages
                     }
                 }
 
-                // CommandType.DAT
-                //...
-
-                // CommandType.PRV
-                // ...
-           
+                // CommandType.CAPTURE_UPLOADED
+                if (eventData.Properties.ContainsKey(EventType.D2C_COMMAND) && (string)eventData.Properties[EventType.D2C_COMMAND] == CommandType.CAPTURE_UPLOADED)
+                {
+                    try
+                    { 
+                        string serializedDeviceSettings = Encoding.UTF8.GetString(data);
+                        deviceSettings = JsonConvert.DeserializeObject<DeviceSettings>(serializedDeviceSettings);
+                        if(deviceSettings.StateName == "RunState")
+                        {
+                            Console.WriteLine("Process uploaded capture: {0}", deviceSettings.CurrentCaptureUri);
+                            Console.WriteLine("Send the Data to DashboardBroker AND in Event Hub to process them further");
+                        }
+                        if(deviceSettings.StateName == "PreviewState")
+                        {
+                            Console.WriteLine("Process uploaded capture: {0}", deviceSettings.CurrentCaptureUri);
+                            Console.WriteLine("JUST Send the Data to DashboardBroker");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                        continue;
+                    }
+                }
 
             }
         }

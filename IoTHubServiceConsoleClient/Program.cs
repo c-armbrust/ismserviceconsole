@@ -1,13 +1,18 @@
-﻿using IsmIoT.Commands;
+﻿// Switch the options to receive events with EventProcessorHost OR EventHubClient
+#define EVENT_PROCESSOR_HOST
+
+using IsmIoT.Commands;
 using IsmIoTPortal.Models;
 using Microsoft.Azure.Devices;
 using Microsoft.ServiceBus.Messaging;
 using Newtonsoft.Json;
+using ProcessD2CMessages;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+
 
 namespace IoTHubServiceConsoleClient
 {
@@ -15,9 +20,46 @@ namespace IoTHubServiceConsoleClient
     {
         static ServiceClient serviceClient;
         #region connection string
-        static string connectionString = "[connection string]";
+        static string connectionString = "";
+        static string iotHubD2cEndpoint = "messages/events";
+        static string storageConnectionString = ""; // for eventprocessorhost leasing mechanism
+        static EventHubClient eventHubClient; // Use EventHubClient for IoT Hubs too
         #endregion
-        static string deviceId = "[device id]";
+        static string deviceId = "";
+
+        private async static Task ReceiveMessagesFromDeviceAsync(string partition)
+        {
+            // This creates a receiver that will receive only message that are sent after it starts (DateTime.Now parameter)
+            var eventHubReceiver = eventHubClient.GetDefaultConsumerGroup().CreateReceiver(partition, DateTime.Now);
+            while (true)
+            {
+                EventData eventData = await eventHubReceiver.ReceiveAsync();
+                if (eventData == null) continue;
+
+                // CommandType.UPDATE_DASHBOARD_CONTROLS
+                //
+                if (eventData.Properties.ContainsKey(EventType.D2C_COMMAND) && (string)eventData.Properties[EventType.D2C_COMMAND] == CommandType.UPDATE_DASHBOARD_CONTROLS)
+                {
+                    try
+                    {
+                        //var messageId = (string)eventData.SystemProperties["message-id"];
+                        string serializedDeviceSettings = Encoding.UTF8.GetString(eventData.GetBytes());
+                        DeviceSettings deviceSettings = JsonConvert.DeserializeObject<DeviceSettings>(serializedDeviceSettings);
+                        Console.WriteLine(string.Format("\nReceived message, message-body=\n{0}", serializedDeviceSettings));
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                    }
+                }
+
+                // CommandType.DAT
+                //...
+
+                // CommandType.PRV
+                // ...
+            }
+        }
 
 
 
@@ -33,27 +75,26 @@ namespace IoTHubServiceConsoleClient
 
 
 
-        private async static Task SendTestObjectCloudToDeviceMessageAsync(string cmd)
+        private async static Task SendTestObjectCloudToDeviceMessageAsync(string cmd, uint captureperiod, uint pulsewidth, uint predelay, uint gain, double exposure)
         {
-            // DeviceSettings object
-            DeviceSettings devicesettings = new DeviceSettings();
-            devicesettings.DeviceId = "[device id]";
-            devicesettings.StateName = "ReadyState";
-            devicesettings.CapturePeriod = 10;
-            devicesettings.CurrentCaptureUri = "https://uriofblob/blob.jpg";
-            devicesettings.VarianceThreshold = 0.0025;
-            devicesettings.DistanceMapThreshold = 8.5;
-            devicesettings.RGThreshold = 3.75;
-            devicesettings.RestrictedFillingThreshold = 4;
-            devicesettings.DilateValue = 16;
-            devicesettings.Brightness = 1;
-            devicesettings.Exposure = 1;
-            devicesettings.PulseWidth = 50;
-            devicesettings.Current = 75;
-            devicesettings.Predelay = 5;
-            devicesettings.IsOn = true;
+            //// DeviceSettings object
+            //DeviceSettings devicesettings = new DeviceSettings();
+            //devicesettings.DeviceId = "[device id]";
+            //devicesettings.StateName = "ReadyState";
+            SimpleEventProcessor.deviceSettings.CapturePeriod = captureperiod;
+            //devicesettings.CurrentCaptureUri = "https://uriofblob/blob.jpg";
+            //devicesettings.VarianceThreshold = 0.0025;
+            //devicesettings.DistanceMapThreshold = 8.5;
+            //devicesettings.RGThreshold = 3.75;
+            //devicesettings.RestrictedFillingThreshold = 4;
+            //devicesettings.DilateValue = 16;
+            SimpleEventProcessor.deviceSettings.Gain = gain;
+            SimpleEventProcessor.deviceSettings.Exposure = exposure;
+            SimpleEventProcessor.deviceSettings.PulseWidth = pulsewidth;
+            //devicesettings.Current = 75;
+            SimpleEventProcessor.deviceSettings.Predelay = predelay;
 
-            string serializedDeviceState = JsonConvert.SerializeObject(devicesettings);
+            string serializedDeviceState = JsonConvert.SerializeObject(SimpleEventProcessor.deviceSettings);
             var commandMessage = new Message(Encoding.ASCII.GetBytes(serializedDeviceState));
             commandMessage.Ack = DeliveryAcknowledgement.Full;
             commandMessage.MessageId = Guid.NewGuid().ToString();
@@ -106,8 +147,19 @@ namespace IoTHubServiceConsoleClient
 
         static void SetDeviceSettings()
         {
+            uint captureperiod;
+            uint pulsewidth;
+            uint predelay;
+            uint gain;
+            double exposure;
+            Console.WriteLine("Insert\n1. CapturePeriod in ms\n2. Pulsewidth in µs\n3. Predelay in µs\n4. Gain in %\n5. Exposure");
+            captureperiod = Convert.ToUInt32(Console.ReadLine());
+            pulsewidth = Convert.ToUInt32(Console.ReadLine());
+            predelay = Convert.ToUInt32(Console.ReadLine());
+            gain = Convert.ToUInt32(Console.ReadLine());
+            exposure = Convert.ToDouble(Console.ReadLine());
             //SendSimpleCloudToDeviceMessageAsync(CommandType.SET_DEVICE_SETTINGS).Wait();
-            SendTestObjectCloudToDeviceMessageAsync(CommandType.SET_DEVICE_SETTINGS).Wait();
+            SendTestObjectCloudToDeviceMessageAsync(CommandType.SET_DEVICE_SETTINGS, captureperiod, pulsewidth, predelay, gain, exposure).Wait();
         }
 
         static void GetDeviceSettings()
@@ -124,8 +176,41 @@ namespace IoTHubServiceConsoleClient
             ReceiveFeedbackAsync();
 
 
+#if EVENT_PROCESSOR_HOST
+            string eventProcessorHostName = Guid.NewGuid().ToString();
+            EventProcessorHost eventProcessorHost = new EventProcessorHost(eventProcessorHostName, iotHubD2cEndpoint, EventHubConsumerGroup.DefaultGroupName, connectionString, storageConnectionString, "msg-events");
+            Console.WriteLine("Registering EventProcessor...");
+            Task.Factory.StartNew(() => { 
+            // EventProcessorHost
+            //
+            //string eventProcessorHostName = Guid.NewGuid().ToString();
+            //EventProcessorHost eventProcessorHost = new EventProcessorHost(eventProcessorHostName, iotHubD2cEndpoint, EventHubConsumerGroup.DefaultGroupName, connectionString, storageConnectionString, "msg-events");
+            Console.WriteLine("Registering EventProcessor...");
+            eventProcessorHost.RegisterEventProcessorAsync<SimpleEventProcessor>().Wait();
+
+            //Console.WriteLine("Receiving. Press enter key to stop worker.");
+            //Console.ReadLine();
+            //eventProcessorHost.UnregisterEventProcessorAsync().Wait();
+#else
+                // EventHubClient
+                //
+                Console.WriteLine("Reading Events...");
+                eventHubClient = EventHubClient.CreateFromConnectionString(connectionString, iotHubD2cEndpoint);
+
+                var d2cPartitions = eventHubClient.GetRuntimeInformation().PartitionIds;
+
+                foreach (string partition in d2cPartitions)
+                {
+                    ReceiveMessagesFromDeviceAsync(partition);
+                }
+                Console.ReadLine();
+#endif
+            });
+
+
+
             string cmd = "";
-            while(cmd != "q")
+            while (cmd != "q")
             {
                 Console.WriteLine("Send a C2D Message:");
                 Console.WriteLine("Start:               1");
@@ -138,7 +223,7 @@ namespace IoTHubServiceConsoleClient
 
                 cmd = Console.ReadLine();
 
-                switch(cmd)
+                switch (cmd)
                 {
                     case "1":
                         Start();
@@ -162,6 +247,8 @@ namespace IoTHubServiceConsoleClient
                         break;
                 }
             }
+            // Shutdown eventprocessorhost and set checkpoint
+            eventProcessorHost.UnregisterEventProcessorAsync().Wait();
         }
     }
 }
